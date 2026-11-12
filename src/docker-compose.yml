@@ -1,33 +1,42 @@
-version: '3.3'
-
 services:
    db:
-     image: mysql:latest
+     # pinned to the 8.4 LTS line instead of ":latest" so a major-version jump can't surprise you
+     image: mysql:8.4
      volumes:
        - db_data:/var/lib/mysql
      restart: always
      environment:
-       MYSQL_ROOT_PASSWORD: $MYSQL_ROOT_PASSWORD
-       MYSQL_DATABASE: $MYSQL_DATABASE
-       MYSQL_USER: $MYSQL_USER
-       MYSQL_PASSWORD: $MYSQL_PASSWORD
+       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+       MYSQL_DATABASE: ${MYSQL_DATABASE:?set MYSQL_DATABASE in .env}
+       MYSQL_USER: ${MYSQL_USER:?set MYSQL_USER in .env}
+       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
 
    wordpress:
      depends_on:
        - db
+       - redis
+     build: .
      image: azurewordpress/dev
      ports:
        - "8000:80"
      restart: always
+     volumes:
+       # mirrors the Azure Container Apps setup: ONLY wp-content is a persistent mount
+       - wp_content:/var/www/html/wp-content
      environment:
        WORDPRESS_DB_HOST: db:3306
-       WORDPRESS_DB_USER: $MYSQL_USER
-       WORDPRESS_DB_PASSWORD: $MYSQL_PASSWORD
+       WORDPRESS_DB_NAME: ${MYSQL_DATABASE}
+       WORDPRESS_DB_USER: ${MYSQL_USER}
+       WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}
+       WP_REDIS_HOST: redis
 
    redis:
      image: mcr.microsoft.com/oss/bitnami/redis:6.0.8
-     environment: 
+     environment:
       - ALLOW_EMPTY_PASSWORD=yes
      restart: always
+     # no "ports:" on purpose - only reachable from the wordpress container
+
 volumes:
     db_data:
+    wp_content:

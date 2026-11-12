@@ -1,14 +1,28 @@
 #
-# NOTE: THIS DOCKERFILE IS BY WORDPRESS AND USED AS DEFAULT
+# NOTE: THIS DOCKERFILE IS BASED ON THE OFFICIAL WORDPRESS docker-library php8.5/apache IMAGE
 # Any customisations marked with #### CUSTOM
-# PHP 8.3 APACHE WORDPRESS 6.5.5
+# PHP 8.5 (>= 8.5.12) APACHE WORDPRESS 7.1.4
+#
+# Build with --pull so you always get the newest php:8.5-apache base:
+#   docker build --pull -t azurewordpress/dev .
 #
 
-FROM php:8.3-apache
+FROM php:8.5-apache
+
+#### CUSTOM - refuse to build on a stale (vulnerable) base image
+# 8.5.12 contains the fixes for CVE-2026-109618 / CVE-2026-109619 (unauthenticated RCE)
+# and the 24 Sep 2026 batch of security fixes.
+ARG MIN_PHP_VERSION=8.5.12
+RUN set -eux; \
+	php -r 'if (version_compare(PHP_VERSION, getenv("MIN_PHP_VERSION"), "<")) { fwrite(STDERR, "Base image has PHP " . PHP_VERSION . " but >= " . getenv("MIN_PHP_VERSION") . " is required. Rebuild with: docker build --pull --no-cache\n"); exit(1); }'
+#### CUSTOM (END)
 
 # persistent dependencies
 RUN set -eux; \
 	apt-get update; \
+#### CUSTOM - pull in OS security patches (libs used by gd/imagick/ghostscript etc.)
+	apt-get upgrade -y; \
+#### CUSTOM (END)
 	apt-get install -y --no-install-recommends \
 # Ghostscript is required for rendering PDF previews
 		ghostscript \
@@ -22,6 +36,7 @@ RUN set -ex; \
 	\
 	apt-get update; \
 	apt-get install -y --no-install-recommends \
+		libavif-dev \
 		libfreetype6-dev \
 		libicu-dev \
 		libjpeg-dev \
@@ -32,6 +47,7 @@ RUN set -ex; \
 	; \
 	\
 	docker-php-ext-configure gd \
+		--with-avif \
 		--with-freetype \
 		--with-jpeg \
 		--with-webp \
@@ -45,18 +61,9 @@ RUN set -ex; \
 		zip \
 	; \
 # https://pecl.php.net/package/imagick
-# https://github.com/Imagick/imagick/commit/5ae2ecf20a1157073bad0170106ad0cf74e01cb6 (causes a lot of build failures, but strangely only intermittent ones 🤔)
-# see also https://github.com/Imagick/imagick/pull/641
-# this is "pecl install imagick-3.7.0", but by hand so we can apply a small hack / part of the above commit
-	curl -fL -o imagick.tgz 'https://pecl.php.net/get/imagick-3.7.0.tgz'; \
-	echo '5a364354109029d224bcbb2e82e15b248be9b641227f45e63425c06531792d3e *imagick.tgz' | sha256sum -c -; \
-	tar --extract --directory /tmp --file imagick.tgz imagick-3.7.0; \
-	grep '^//#endif$' /tmp/imagick-3.7.0/Imagick.stub.php; \
-	test "$(grep -c '^//#endif$' /tmp/imagick-3.7.0/Imagick.stub.php)" = '1'; \
-	sed -i -e 's!^//#endif$!#endif!' /tmp/imagick-3.7.0/Imagick.stub.php; \
-	grep '^//#endif$' /tmp/imagick-3.7.0/Imagick.stub.php && exit 1 || :; \
-	docker-php-ext-install /tmp/imagick-3.7.0; \
-	rm -rf imagick.tgz /tmp/imagick-3.7.0; \
+	pecl install imagick-3.8.1; \
+	docker-php-ext-enable imagick; \
+	rm -rf /tmp/pear; \
 	\
 # some misbehaving extensions end up outputting to stdout 🙈 (https://github.com/docker-library/wordpress/issues/669#issuecomment-993945967)
 	out="$(php -r 'exit(0);')"; \
@@ -86,23 +93,21 @@ RUN set -ex; \
 	[ -z "$err" ]
 
 
-#### CUSTOM - install redis php extension
-ENV PHPREDIS_VERSION=6.0.2
-
-RUN docker-php-source extract \
-  && curl -L -o /tmp/redis.tar.gz https://github.com/phpredis/phpredis/archive/$PHPREDIS_VERSION.tar.gz \
-  && tar xfz /tmp/redis.tar.gz \
-  && rm -r /tmp/redis.tar.gz \
-  && mv phpredis-$PHPREDIS_VERSION /usr/src/php/ext/redis \
-  && docker-php-ext-install redis \
-  && docker-php-source delete
+#### CUSTOM - install redis php extension (phpredis 6.3.x supports PHP 8.5)
+# Installed from PECL instead of an unverified GitHub tarball fetched with `curl -L`.
+ARG PHPREDIS_VERSION=6.3.0
+RUN set -eux; \
+	pecl install "redis-${PHPREDIS_VERSION}"; \
+	docker-php-ext-enable redis; \
+	rm -rf /tmp/pear; \
+	php -r 'exit(extension_loaded("redis") ? 0 : 1);'
 #### CUSTOM (END)
 
 
 # set recommended PHP.ini settings
 # see https://secure.php.net/manual/en/opcache.installation.php
+# NOTE: as of PHP 8.5 OPcache is always compiled in, so `docker-php-ext-enable opcache` is no longer needed
 RUN set -eux; \
-	docker-php-ext-enable opcache; \
 	{ \
 		echo 'opcache.memory_consumption=128'; \
 		echo 'opcache.interned_strings_buffer=8'; \
@@ -124,6 +129,17 @@ RUN { \
 		echo 'html_errors = Off'; \
 	} > /usr/local/etc/php/conf.d/error-logging.ini
 
+#### CUSTOM - don't advertise PHP / Apache versions to scanners
+# (named zz-* so it loads after Debian's own security.conf and wins)
+RUN set -eux; \
+	echo 'expose_php = Off' > /usr/local/etc/php/conf.d/zz-hardening.ini; \
+	{ \
+		echo 'ServerTokens Prod'; \
+		echo 'ServerSignature Off'; \
+	} > /etc/apache2/conf-available/zz-hardening.conf; \
+	a2enconf zz-hardening
+#### CUSTOM (END)
+
 RUN set -eux; \
 	a2enmod rewrite expires; \
 	\
@@ -144,8 +160,8 @@ RUN set -eux; \
 	find /etc/apache2 -type f -name '*.conf' -exec sed -ri 's/([[:space:]]*LogFormat[[:space:]]+"[^"]*)%h([^"]*")/\1%a\2/g' '{}' +
 
 RUN set -eux; \
-	version='6.5.5'; \
-	sha1='8d6a705f1b59367ec584a5fd4ab84aa53dd01c85'; \
+	version='7.1.4'; \
+	sha1='b175879c4fb2d35300f9abe1153da9b543a35a2b'; \
 	\
 	curl -o wordpress.tar.gz -fL "https://wordpress.org/wordpress-$version.tar.gz"; \
 	echo "$sha1 *wordpress.tar.gz" | sha1sum -c -; \
@@ -184,7 +200,7 @@ RUN set -eux; \
 VOLUME /var/www/html
 
 COPY --chown=www-data:www-data wp-config-docker.php /usr/src/wordpress/
-COPY docker-entrypoint.sh /usr/local/bin/
+COPY --chmod=0755 docker-entrypoint.sh /usr/local/bin/
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["apache2-foreground"]
