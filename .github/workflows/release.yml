@@ -1,0 +1,39 @@
+name: Release
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+on:
+  release:
+    types: [published]
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (for manual re-runs)"
+        required: true
+
+jobs:
+  pack:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    outputs:
+      resolved-tag: ${{ steps.resolve-tag.outputs.tag }}
+    steps:
+      - name: Resolve tag
+        id: resolve-tag
+        run: |
+          TAG="${{ github.event.inputs.tag || github.event.release.tag_name || github.ref_name }}"
+          if [[ -z "$TAG" ]]; then
+            echo "::error::Could not resolve a tag for this release run"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.resolve-tag.outputs.tag }}
+          fetch-depth: 0 # MinVer needs full history to find the tag for versioning
