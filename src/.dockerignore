@@ -1,0 +1,24 @@
+# compose and docker files aren't needed inside the image
+docker-compose*.yml
+docker-compose*.yaml
+Dockerfile*
+.dockerignore
+
+# VCS / editor / OS noise
+.git
+.gitignore
+.github
+.vscode
+.idea
+.DS_Store
+*.swp
+
+# local env and secrets
+.env
+.env.*
+*.pem
+*.key
+
+# docs and misc
+*.md
+LICENSE
