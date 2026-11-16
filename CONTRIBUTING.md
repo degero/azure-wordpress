@@ -23,7 +23,6 @@ Please open a [GitHub issue](https://github.com/degero/Azure Wordpress/issues) a
 1. Fork the repo and clone your fork.
 1. Ensure you have docker installed locally
 
-
 ### Making changes
 
 - Create a branch off `main` for your change eg: `git checkout -b [feat/fix]/short-description`.
