@@ -1,7 +1,7 @@
 services:
   db:
-    # pinned to the 9.4 LTS
-    image: mysql:9.4
+    # pinned to the 12.3 LTS
+    image: mariadb:12.3
     volumes:
       - db_data:/var/lib/mysql
     restart: always
