@@ -2,6 +2,10 @@
 
 Notes for maintainers on release and dependency workflows. This complements [CONTRIBUTING.md](./CONTRIBUTING.md), which covers the general contribution process for everyone.
 
+## Builds and Docker pushes
+
+Github workflows will push PR builds of the docker image with a version pr-#. Main branch will build but not push. Any tags are built and pushed. For testing out before cutting a release see below about doing a Release Candidate version.
+
 ## Versioning
 
 This is handled via git tags of `vX.X.X` and docker images set with this version. Tags are created automatically by release-please based on the conventions noted in [CONTRIBUTING.md](CONTRIBUTING.md#pull-request-title)

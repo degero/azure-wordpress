@@ -21,23 +21,13 @@ Please open a [GitHub issue](https://github.com/degero/Azure Wordpress/issues) a
 ### Getting started
 
 1. Fork the repo and clone your fork.
-2. Install the [.NET SDK](https://dotnet.microsoft.com/download) (see `global.json` / the `TargetFrameworks` in the `.csproj` for supported versions).
-3. Restore and build:
+1. Ensure you have docker installed locally
 
-   ```bash
-   dotnet restore
-   dotnet build
-   ```
-
-4. Run the tests:
-
-   ```bash
-   dotnet test
-   ```
 
 ### Making changes
 
 - Create a branch off `main` for your change eg: `git checkout -b [feat/fix]/short-description`.
+- in src/ make changes and run the `docker compose up` to test locally
 - Keep changes focused — smaller, single-purpose pull requests are easier to review and merge.
 - See the [pull_request_template.md](./.github/pull_request_template.md) for a checklist of required steps to be done before submitting for approval.
 

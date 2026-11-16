@@ -2,10 +2,6 @@
 # NOTE: THIS DOCKERFILE IS BASED ON THE OFFICIAL WORDPRESS docker-library php8.5/apache IMAGE
 # Any customisations marked with #### CUSTOM
 # PHP 8.5 (>= 8.5.12) APACHE WORDPRESS 7.1.4
-#
-# Build with --pull so you always get the newest php:8.5-apache base:
-#   docker build --pull -t azurewordpress/dev .
-#
 
 FROM php:8.5-apache
 
