@@ -1,0 +1,38 @@
+name: Cleanup PR image
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  delete-pr-tag:
+    # Remove `merged == true &&` to also clean up PRs that were closed without merging
+    if: github.event.pull_request.merged == true && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Delete PR tag from Docker Hub
+        env:
+          DH_USER: ${{ secrets.DOCKER_HUB_USERNAME }}
+          DH_TOKEN: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: azure-wordpress
+        run: |
+          set -euo pipefail
+
+          JWT=$(curl -fsS -X POST https://hub.docker.com/v2/users/login \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -n --arg u "$DH_USER" --arg p "$DH_TOKEN" '{username:$u,password:$p}')" \
+            | jq -r .token)
+          echo "::add-mask::$JWT"
+
+          status=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE \
+            -H "Authorization: Bearer $JWT" \
+            "https://hub.docker.com/v2/repositories/${DH_USER}/${REPO}/tags/pr-${PR_NUMBER}/")
+
+          # 404 just means the tag was never pushed (e.g. no successful build)
+          if [ "$status" != "204" ] && [ "$status" != "404" ]; then
+            echo "Unexpected status $status deleting pr-${PR_NUMBER}"
+            exit 1
+          fi
