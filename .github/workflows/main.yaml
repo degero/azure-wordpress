@@ -10,7 +10,7 @@ on:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/azure-wordpress
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/azure-wordpress
   # Use the PR head commit for the sha tag, not the synthetic merge commit
   DOCKER_METADATA_PR_HEAD_SHA: "true"
 
@@ -35,8 +35,8 @@ jobs:
         uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
 
       - name: Extract metadata (tags, labels)
         id: meta
