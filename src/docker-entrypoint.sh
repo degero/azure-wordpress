@@ -35,11 +35,21 @@ if [[ "$1" == apache2* ]] || [ "$1" = 'php-fpm' ]; then
 		if [ -n "$(find -mindepth 1 -maxdepth 1 -not -name wp-content)" ]; then
 			echo >&2 "WARNING: $PWD is not empty! (copying anyhow)"
 		fi
+
+		#### CUSTOM - wp-content is typically a separate persistent mount (e.g. Azure Files).
+		# The stock script extracts the whole of /usr/src/wordpress INTO that mount on every
+		# cold start. That (a) overwrites files that live directly under wp-content/ (index.php,
+		# plugins/index.php, themes/index.php, plugins/hello.php ...), and (b) makes tar try to
+		# chown/chmod/utime on an SMB share, which fails with "Operation not permitted" and
+		# (because of `set -e`) kills the container.
+		# So: copy WordPress core WITHOUT wp-content, then seed wp-content separately, once,
+		# and never overwrite anything that is already there.
 		sourceTarArgs=(
 			--create
 			--file -
 			--directory /usr/src/wordpress
 			--owner "$user" --group "$group"
+			--exclude ./wp-content
 		)
 		targetTarArgs=(
 			--extract
@@ -49,22 +59,44 @@ if [[ "$1" == apache2* ]] || [ "$1" = 'php-fpm' ]; then
 			# avoid "tar: .: Cannot utime: Operation not permitted" and "tar: .: Cannot change mode to rwxr-xr-x: Operation not permitted"
 			targetTarArgs+=( --no-overwrite-dir )
 		fi
-		# loop over "pluggable" content in the source, and if it already exists in the destination, skip it
-		# https://github.com/docker-library/wordpress/issues/506 ("wp-content" persisted, "akismet" updated, WordPress container restarted/recreated, "akismet" downgraded)
-		for contentPath in \
-			/usr/src/wordpress/.htaccess \
-			/usr/src/wordpress/wp-content/*/*/ \
-		; do
-			contentPath="${contentPath%/}"
-			[ -e "$contentPath" ] || continue
-			contentPath="${contentPath#/usr/src/wordpress/}" # "wp-content/plugins/akismet", etc.
-			if [ -e "$PWD/$contentPath" ]; then
-				echo >&2 "WARNING: '$PWD/$contentPath' exists! (not copying the WordPress version)"
-				sourceTarArgs+=( --exclude "./$contentPath" )
-			fi
-		done
+		# keep a pre-existing .htaccess
+		# https://github.com/docker-library/wordpress/issues/506
+		if [ -e "$PWD/.htaccess" ]; then
+			echo >&2 "WARNING: '$PWD/.htaccess' exists! (not copying the WordPress version)"
+			sourceTarArgs+=( --exclude ./.htaccess )
+		fi
 		tar "${sourceTarArgs[@]}" . | tar "${targetTarArgs[@]}"
-		echo >&2 "Complete! WordPress has been successfully copied to $PWD"
+		echo >&2 "Complete! WordPress core has been successfully copied to $PWD"
+
+		# WORDPRESS_SEED_WP_CONTENT: "once" (default) = seed default themes/plugins the first time
+		# only (tracked by a marker file inside wp-content), "never" = never touch wp-content.
+		seedMode="${WORDPRESS_SEED_WP_CONTENT:-once}"
+		seedMarker='wp-content/.docker-seeded'
+		mkdir -p wp-content
+		if [ "$seedMode" = 'never' ]; then
+			echo >&2 "WORDPRESS_SEED_WP_CONTENT=never - leaving $PWD/wp-content untouched"
+		elif [ -e "$seedMarker" ]; then
+			echo >&2 "$PWD/wp-content was already seeded - leaving it untouched"
+		else
+			echo >&2 "Seeding missing default content into $PWD/wp-content (existing files are never overwritten)..."
+			# --skip-old-files : never overwrite anything already on the mount
+			# --no-same-owner / --no-same-permissions / --touch :
+			#                    don't chown/chmod/utime, which SMB-backed mounts reject
+			# (GNU tar doesn't allow --no-overwrite-dir together with --skip-old-files)
+			if tar --create --file - --directory /usr/src/wordpress ./wp-content \
+				| tar --extract --file - \
+					--skip-old-files \
+					--no-same-owner --no-same-permissions \
+					--touch
+			then
+				touch "$seedMarker" || echo >&2 "WARNING: could not write $seedMarker (default content may be re-seeded next start)"
+				echo >&2 "Complete! wp-content seeded"
+			else
+				# the site can still run (themes/plugins may simply be missing), so don't crash-loop the container
+				echo >&2 "WARNING: seeding wp-content failed; continuing anyway"
+			fi
+		fi
+		#### CUSTOM (END)
 	fi
 
 	wpEnvs=( "${!WORDPRESS_@}" )

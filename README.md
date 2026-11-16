@@ -2,15 +2,13 @@
 
 ## Description
 
-Wordpress 6.5.5. Designed for Azure App service or Azure Container apps with Redis and MariaDB
+Wordpress 7.1.4 with Redis 6.0.8 and MariaDB 12.3. Designed for Azure App service or Azure Container apps.
 
-Custom Image forked from [Azure wordpress multicontainer docker image](https://github.com/Azure-Samples/multicontainerwordpress) 
+Custom Image forked from [Azure wordpress multicontainer docker image](https://github.com/Azure-Samples/multicontainerwordpress)
 
 Features:
-- Updated to PHP 8.2 / Wordpress 6.5.5
+
 - Retains Redis cache
 - Removed cert settings for MYSQL
 
-Tested with Azure app service and Azure container apps (if you want persistent db/wpress files) with MariaDB 11.2.5
-
- 
+Tested with Azure app service and Azure container apps (if you want persistent db/wpress files).

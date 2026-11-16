@@ -122,8 +122,17 @@ if ($configExtra = getenv_docker('WORDPRESS_CONFIG_EXTRA', '')) {
 	eval($configExtra);
 }
 
-/* Set REDIS settings */
-define('WP_REDIS_HOST', getenv_docker('WP_REDIS_HOST'));
+/* Set REDIS settings (read by the "Redis Object Cache" plugin) */
+// getenv_docker() requires a default - the old one-argument call throws ArgumentCountError on PHP 8+
+if (!defined('WP_REDIS_HOST') && ($redisHost = getenv_docker('WP_REDIS_HOST', ''))) {
+	define('WP_REDIS_HOST', $redisHost);
+	define('WP_REDIS_PORT', (int) getenv_docker('WP_REDIS_PORT', '6379'));
+}
+
+/* Hardening: disable the theme/plugin file editor in wp-admin (a stolen admin login can't turn into code execution) */
+if (!defined('DISALLOW_FILE_EDIT')) {
+	define('DISALLOW_FILE_EDIT', true);
+}
 
 /* That's all, stop editing! Happy publishing. */
 

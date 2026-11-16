@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main] # Trigger on push to main branch
+    tags:
+      - "v*" # Trigger on version tags like v1.0.3
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/azure-wordpress
+  # Use the PR head commit for the sha tag, not the synthetic merge commit
+  DOCKER_METADATA_PR_HEAD_SHA: "true"
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      # Push for same-repo PRs (fork PRs have no access to secrets) and for version tags
+      SHOULD_PUSH: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || startsWith(github.ref, 'refs/tags/v') }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@2b51285047da1547ffb1b2203d8be4c0af6b1f20 # v3.2.0
+
+      - name: Log in to Docker Hub
+        if: env.SHOULD_PUSH == 'true'
+        uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            # Set latest tag for default branch
+            # PRs: pr-<number> (overwritten on each push)
+            type=ref,event=pr
+            # Version tags (e.g., v1.0.3 -> 1.0.3)
+            type=semver,pattern={{version}}
+            # Major.minor tags (e.g., v1.0.3 -> 1.0)
+            type=semver,pattern={{major}}.{{minor}}
+            # Major tags (e.g., v1.0.3 -> 1)
+            type=semver,pattern={{major}}
+            # Latest tag for stable release tags only (not -rc)
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-') }}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@2cdde995de11925a030ce8070c3d77a52ffcf1c0 # v5.3.0
+        with:
+          context: src/
+          platforms: linux/amd64
+          push: ${{ env.SHOULD_PUSH == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Image digest
+        if: env.SHOULD_PUSH == 'true'
+        run: echo ${{ steps.build.outputs.digest }}

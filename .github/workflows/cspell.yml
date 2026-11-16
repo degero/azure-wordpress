@@ -1,0 +1,23 @@
+name: CSpell check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  cspell:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: streetsidesoftware/cspell-action@ce1816e4ce36532956ac6e983737392774b6e169 #v9.2.0
+        with:
+          config: ".cspell.config.yaml"
+          files: "**/*.{php,md,json,yml,yaml,sh,ps1,psm1}"
+          strict: false
+          inline: warning
+          incremental_files_only: ${{ github.event_name == 'pull_request' }} # only check files changed in the PR

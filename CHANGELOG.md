@@ -1,28 +1,19 @@
-## Changelog
+# Changelog
 
+# 1.0.2 (2024-09-30)
 
-# 1.0.2 (2023-01-23)
+### Bug Fixes
 
-*Features*
-* none
+- Set FORCE_SSL_ADMIN and FORCE_SSL_LOGIN as true
 
-*Bug/Sec Fixes*
-* Set FORCE_SSL_ADMIN and FORCE_SSL_LOGIN as true
+# 1.0.1 (2024-09-24)
 
-*Breaking Changes*
-* none
+### Bug Fixes
 
-# 1.0.1 (2023-01-23)
+- Set FS_METHOD as 'direct' for downloading theme/plugin to WP
 
-*Features*
-* none
+# 1.0.0 (2024-09-24)
 
-*Bug Fixes*
-* Set FS_METHOD as 'direct' for downloading theme/plugin to WP
+### Features
 
-*Breaking Changes*
-* none
-
-# 1.0.0 (2023-01-23)
-
-* Initial release
+- Initial release

@@ -1,0 +1,45 @@
+name: Lint
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+env:
+  TF_INPUT: 0
+
+jobs:
+  prettier:
+    name: Prettier
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - run: npx prettier --check "**/*.{json,jsonc,yaml,yml,md}"
+
+  script-lint:
+    name: Lint (scripts)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: Lint shell scripts (shellcheck)
+        run: find . -type f -name "*.sh" -exec shellcheck -S warning {} +
+
+  action-lint:
+    name: Lint (gh actions)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      # run the actionlinter, will fail on errors
+      - uses: devops-actions/actionlint@ec02b36684b2f574f1d219ad0a43b082e46bf3e4 #v0.1.13
