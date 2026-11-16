@@ -18,7 +18,7 @@ on:
 permissions: {}
 
 env:
-  IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/azure-wordpress   # confirm this is the namespace you pushed 1.0.2 to
+  IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/azure-wordpress # confirm this is the namespace you pushed 1.0.2 to
 
 jobs:
   build:
