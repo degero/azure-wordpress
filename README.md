@@ -2,7 +2,7 @@
 
 ## Description
 
-Wordpress 7.1.4 with Redis 6.0.8 and MariaDB 12.3. Designed for Azure App service or Azure Container apps.
+Wordpress 7.1.5 with Redis 6.0.8 and MariaDB 12.3. Designed for Azure App service or Azure Container apps.
 
 Custom Image forked from [Azure wordpress multicontainer docker image](https://github.com/Azure-Samples/multicontainerwordpress)
 
