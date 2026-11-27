@@ -1,7 +1,7 @@
 #
 # NOTE: THIS DOCKERFILE IS BASED ON THE OFFICIAL WORDPRESS docker-library php8.5/apache IMAGE
 # Any customisations marked with #### CUSTOM
-# PHP 8.5 (>= 8.5.12) APACHE WORDPRESS 7.1.4
+# PHP 8.5 (>= 8.5.12) APACHE WORDPRESS 7.1.5
 
 FROM php:8.5-apache
 
@@ -156,8 +156,8 @@ RUN set -eux; \
 	find /etc/apache2 -type f -name '*.conf' -exec sed -ri 's/([[:space:]]*LogFormat[[:space:]]+"[^"]*)%h([^"]*")/\1%a\2/g' '{}' +
 
 RUN set -eux; \
-	version='7.1.4'; \
-	sha1='b175879c4fb2d35300f9abe1153da9b543a35a2b'; \
+	version='7.1.5'; \
+	sha1='f79cd80a8f8152edd88ef9be859ae765f2ec6c36'; \
 	\
 	curl -o wordpress.tar.gz -fL "https://wordpress.org/wordpress-$version.tar.gz"; \
 	echo "$sha1 *wordpress.tar.gz" | sha1sum -c -; \
